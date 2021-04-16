@@ -3,3 +3,4 @@ config/*
 !config/public.key
 !config/*.enc
 logs
+node_modules
