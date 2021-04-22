@@ -1,4 +1,4 @@
-import { RapidProFlowExport } from "scripts/types";
+import { RapidProFlowExport } from "../../../../types";
 
 /*********************************************************************************************
  *  Base flow types
@@ -7,22 +7,6 @@ import { RapidProFlowExport } from "scripts/types";
 export namespace FlowTypes {
     export type FlowType =
         | "conversation"
-        | "tips"
-        | "completion_list"
-        | "goal_list"
-        | "habit_list"
-        | "task_list"
-        | "module_list"
-        | "module_page"
-        | "care_package_list"
-        | "tour"
-        | "habit_ideas"
-        | "reminder_list"
-        | "template"
-        | "component_defaults"
-        | "home_page";
-
-    // NOTE - most of these types are duplicated in src/data, should eventually refactor to common libs
 
     /** Core typings that appear in all flows, prior to data row merge */
     export interface FlowTypeBase {
@@ -61,7 +45,14 @@ export namespace FlowTypes {
         | "save_value"
         | "exit"
         | "mark_as_completed"
-        | "split_random";
+        | "split_random"
+        | "add_to_group"
+        | "remove_from_group"
+        | "save_flow_result"
+        | "set_language"
+        | "wait_for_response"
+        | "split_by_group"
+        | "split_by_value";
         from?: string | number;
         condition?: string | number;
         condition_var?: string;
