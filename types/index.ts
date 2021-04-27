@@ -1,5 +1,12 @@
 export namespace RapidProFlowExport {
-    export type ActionType = "enter_flow" | "send_msg" | "set_contact_field" | "set_contact_name";
+    export type ActionType = "enter_flow" 
+                            | "send_msg" 
+                            | "set_contact_field" 
+                            | "set_contact_name" 
+                            | "add_contact_groups" 
+                            | "remove_contact_groups"
+                            | "set_contact_language"
+                            | "set_run_result";
 
     export interface Action {
         type: ActionType;
@@ -17,6 +24,9 @@ export namespace RapidProFlowExport {
         attachments?: string[];
         field?: { key?: string; name?: string };
         value?: string;
+        all_groups?: boolean;
+        language?: string;
+        category?: string;
         // This used to go to another flow. Rapid Pro uses flow unique id (uuid) to pick which flow to go to
         // The IDEMS version uses name which we assume to be unique
         flow?: { uuid?: string; name: string };
@@ -36,7 +46,8 @@ export namespace RapidProFlowExport {
         | "has_number_between"
         | "has_number_lt"
         | "has_number_gt"
-        | "has_only_text";
+        | "has_only_text"
+        | "has_group";
 
     export interface RouterCase {
         arguments: string[];
@@ -142,4 +153,4 @@ export namespace RapidProFlowExport {
     }
 }
 
-export {FlowTypes} from "./flow-types"
+//export {FlowTypes} from "./flow-types"

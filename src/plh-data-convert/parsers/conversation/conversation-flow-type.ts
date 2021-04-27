@@ -91,6 +91,8 @@ export namespace FlowTypes {
         choice_12?: string;
         choice_12_Media?: string;
         condition_type?: RapidProFlowExport.RouterCaseType;
+        obj_id: string;
+        no_response?: string;
         // This is the UUID of the Node first created for this row, which is used to set how nodes go into this node.
         // This is set once.
         nodeUUIDForExit?: string;

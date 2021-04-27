@@ -1,6 +1,8 @@
 import { v4 as uuidv4 } from "uuid";
 import chalk from "chalk";
-import { FlowTypes, RapidProFlowExport } from "../../../../types";
+//import { FlowTypes, RapidProFlowExport } from "../../../../types";
+import {RapidProFlowExport } from "../../../../types";
+import { FlowTypes} from "./conversation-flow-type";
 import { AbstractParser } from "../abstract.parser";
 
 // Default settings
@@ -96,6 +98,7 @@ export class ConversationParser implements AbstractParser {
             );
           }
           let action_text = row.message_text;
+          
           // App specific properties that will be appended to message_text in a link.
           let link_text = "https://plh-demo1.idems.international/chat/msg-info?";
           let add_texts: string[] = [];
@@ -145,6 +148,7 @@ export class ConversationParser implements AbstractParser {
               .join("\n");
           }
          /////////////end app specific
+         
           if (add_texts.length > 0) action_text += " " + link_text + add_texts.join("&");
           actionNode.actions.push({
             attachments: imageUrls.map((url) => "image:" + url),
@@ -208,6 +212,7 @@ export class ConversationParser implements AbstractParser {
           actionNode.actions.push({
             flow: {
               name: row.message_text,
+              uuid: row.obj_id
             },
             type: "enter_flow",
             uuid: this.deterministicUUID(conversation.flow_name, "action"),
@@ -216,6 +221,94 @@ export class ConversationParser implements AbstractParser {
           row._rapidProNode = actionNode;
           nodesById[nodeId] = actionNode;
         } else if (row.type === "go_to") {
+        } else if (row.type === "add_to_group") {
+          actionNode.actions.push({
+            groups:[ {
+              name: row.message_text,
+              uuid: row.obj_id
+            }],
+            type: "add_contact_groups",
+            uuid: this.deterministicUUID(conversation.flow_name, "action"),
+          });
+          row._rapidProNode = actionNode;
+          nodesById[nodeId] = actionNode;
+
+        } else if (row.type === "remove_from_group") {
+          actionNode.actions.push({
+            groups:[ {
+              name: row.message_text,
+              uuid: row.obj_id
+            }],
+            type: "remove_contact_groups",
+            all_groups: false,
+            uuid: this.deterministicUUID(conversation.flow_name, "action"),
+          });
+          row._rapidProNode = actionNode;
+          nodesById[nodeId] = actionNode;
+
+        } else if (row.type === "save_flow_result") {
+          actionNode.actions.push({
+            type: "set_run_result",
+            name: row.save_name,
+            value: row.message_text,
+            category: "",
+            uuid: this.deterministicUUID(conversation.flow_name, "action"),
+          });
+          row._rapidProNode = actionNode;
+          nodesById[nodeId] = actionNode;
+          
+        } else if (row.type === "set_language") {
+            actionNode.actions.push({
+              type: "set_contact_language",
+              language: row.message_text,
+              uuid: this.deterministicUUID(conversation.flow_name, "action"),
+            });
+            row._rapidProNode = actionNode;
+            nodesById[nodeId] = actionNode;
+        } else if (row.type === "wait_for_response") {
+          actionNode = this.createRouterNode("@input","text","switch");
+          if (row.no_response){
+            actionNode.router.wait.timeout.seconds = row.no_response;
+          }
+          // add no response exit???
+          row._rapidProNode = actionNode;
+          nodesById[nodeId] = actionNode;
+        } else if (row.type === "split_by_group") {
+          actionNode = this.createRouterNode("@contact","groups","switch","Other");
+          let exit: RapidProFlowExport.Exit = 
+            {
+              uuid: this.deterministicUUID(this.conversationSheet.flow_name, "exit"),
+              destination_uuid: null,
+            };
+          
+            actionNode.exits.push(exit)
+            
+          let category: RapidProFlowExport.Category = 
+            {
+              uuid: this.deterministicUUID(this.conversationSheet.flow_name, "category"),
+              name: row.message_text,
+              exit_uuid: exit.uuid,
+            };
+          
+          actionNode.router.categories.push(category)
+
+          let rout_case: RapidProFlowExport.RouterCase = 
+            {
+              uuid: this.deterministicUUID(this.conversationSheet.flow_name, "case"),
+              type: "has_group",
+              arguments: [row.obj_id, row.message_text],
+              category_uuid: category.uuid,
+            };
+          
+          actionNode.router.cases.push(rout_case)
+
+          row._rapidProNode = actionNode;
+          nodesById[nodeId] = actionNode;
+
+        } else if (row.type === "split_by_value") {
+          actionNode = this.createRouterNode("",row.message_text,"switch","Other");
+          row._rapidProNode = actionNode;
+          nodesById[nodeId] = actionNode;
         } else if (row.type === "save_value") {
           actionNode.actions.push(this.createSaveAction(row.save_name, row.message_text));
           row._rapidProNode = actionNode;
@@ -366,6 +459,8 @@ export class ConversationParser implements AbstractParser {
     node.exits = exits;
   }
 
+
+
   private setRowIDs(rows: FlowTypes.ConversationRow[]) {
     let nullRows = rows.filter((row) => row.row_id === undefined);
 
@@ -454,7 +549,7 @@ export class ConversationParser implements AbstractParser {
   }
 
   private createRouterNode(
-    operandType: "@input" | "@fields" | "",
+    operandType: "@input" | "@contact"  | "@fields" | "",
     operandValue: "text" | string,
     routerType: "switch" | "random" | string = "switch",
     defaultName: string = "All Responses"
