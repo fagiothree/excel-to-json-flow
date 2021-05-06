@@ -54,7 +54,7 @@ export namespace FlowTypes {
         | "split_by_group"
         | "split_by_value";
         from?: string | number;
-        condition?: string | number;
+        condition?: string;
         condition_var?: string;
         character?: string;
         message_text: string;
@@ -91,6 +91,7 @@ export namespace FlowTypes {
         choice_12?: string;
         choice_12_Media?: string;
         condition_type?: RapidProFlowExport.RouterCaseType;
+        condition_name?: string;
         obj_id: string;
         no_response?: string;
         // This is the UUID of the Node first created for this row, which is used to set how nodes go into this node.

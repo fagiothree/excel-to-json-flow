@@ -3,6 +3,7 @@ import chalk from "chalk";
 import { loadConfig, promptOptions } from "./src/utils";
 import { spawnSync } from "child_process";
 
+
 /**
  * A list of script entrypoints, with value specified by their npm run name,
  * e.g. `version` -> `npm run version`
