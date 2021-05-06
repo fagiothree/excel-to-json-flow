@@ -1,4 +1,4 @@
-import { FlowTypes } from "../../../types";
+import { FlowTypes } from "./conversation/conversation-flow-type";
 
 /**
  * If we decide to apply any generic conversions system-wide we can do them

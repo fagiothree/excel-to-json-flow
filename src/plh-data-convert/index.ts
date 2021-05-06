@@ -2,6 +2,7 @@ import * as fs from "fs-extra";
 import * as xlsx from "xlsx";
 import * as path from "path";
 import chalk from "chalk";
+require('source-map-support').install();
 //import { ConversationParser, DefaultParser, TemplateParser } from "./parsers";
 import { ConversationParser, DefaultParser } from "./parsers";
 import {
@@ -10,7 +11,8 @@ import {
   capitalizeFirstLetter,
   arrayToHashmap,
 } from "../utils";
-import { FlowTypes } from "../../types";
+//import { FlowTypes } from "../../types";
+import { FlowTypes} from "./parsers/conversation/conversation-flow-type";
 import { AbstractParser } from "./parsers/abstract.parser";
 //import { TaskListParser } from "./parsers/task_list/task_list.parser";
 //import { ReminderListParser } from "./parsers/reminder_list/reminder_list.parser";
@@ -76,10 +78,12 @@ function applyDataParsers(
   // All flow types will be processed by the default parser unless otherwise specified here
 
   // generate a list of all tasks required by the taskListParser (merging rows from all task_list types)
+  /*
   const allTasksById = arrayToHashmap(
     (dataByFlowType.task_list || []).reduce((a, b) => [...a, ...b.rows], []),
     "id"
   );
+  */
   const customParsers: { [flowType in FlowTypes.FlowType]?: AbstractParser } = {
     conversation: new ConversationParser(),
     //task_list: new TaskListParser(dataByFlowType, allTasksById),

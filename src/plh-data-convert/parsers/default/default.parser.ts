@@ -1,6 +1,6 @@
 import chalk from "chalk";
 import * as fs from "fs-extra";
-import { FlowTypes } from "../../../../types";
+import { FlowTypes } from "../conversation/conversation-flow-type";
 import { AbstractParser } from "../abstract.parser";
 // When running this parser assumes there is a 'type' column
 type IRowData = { type: string; name?: string };

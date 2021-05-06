@@ -45,9 +45,14 @@ export namespace RapidProFlowExport {
         | "has_phrase"
         | "has_number_between"
         | "has_number_lt"
+        | "has_number_lte"
         | "has_number_gt"
+        | "has_number_gte"
+        | "has_number_eq"
         | "has_only_text"
-        | "has_group";
+        | "has_group"
+        | "has_pattern"
+        ;
 
     export interface RouterCase {
         arguments: string[];
