@@ -101,7 +101,7 @@ export class ConversationParser implements AbstractParser {
               ": Message text cannot be blank for Type = send_message."
             );
           }
-          let action_text = row.message_text;
+          let action_text = String(row.message_text);
 
           // App specific properties that will be appended to message_text in a link.
           let link_text = "https://plh-demo1.idems.international/chat/msg-info?";
@@ -146,7 +146,7 @@ export class ConversationParser implements AbstractParser {
           action_text = this.replaceImageTag(action_text, "<image>", "block-image", imageUrls);
           action_text = this.replaceImageTag(action_text, "<icon>", "icon", iconUrls);
           */
-         
+
 
           if (isStory) {
             action_text = action_text
@@ -178,7 +178,7 @@ export class ConversationParser implements AbstractParser {
                 categories: [
                   {
                     uuid: this.deterministicUUID(conversation.flow_name, "category"),
-                    name: "All Responses",
+                    name: "Other",
                     exit_uuid: null,
                   },
                 ],
@@ -799,18 +799,18 @@ export class ConversationParser implements AbstractParser {
         // for split by group only need to set destination uuid
       } else if (routerNode.router.type === "switch" && routerNode.router.cases.length > 0 && routerNode.router.cases[0].type === "has_group") {
         routerNode.exits[1].destination_uuid = row.nodeUUIDForExit;
-      
-      // wait for response needs to be processed separately because of the "No response" exit which doesn't correspond to a case
-      } else if (routerNode.router.operand == "@input.text" && routerNode.router.hasOwnProperty("wait") && cond == "No Response"){
-        
-          if (!routerNode.router.wait.timeout)
+
+        // wait for response needs to be processed separately because of the "No response" exit which doesn't correspond to a case
+      } else if (routerNode.router.operand == "@input.text" && routerNode.router.hasOwnProperty("wait") && cond == "No Response") {
+
+        if (!routerNode.router.wait.timeout)
           throw new Error(
             "On row " + row.row_id + ": no response condition without timeout"
           );
-          let no_resp_cat = routerNode.router.categories.filter(cat => (cat.name == "No Response"))[0];
-          let no_cat_exit = no_resp_cat.exit_uuid;
-          routerNode.exits.filter(ex => (ex.uuid) == no_cat_exit)[0].destination_uuid = row.nodeUUIDForExit;
-        
+        let no_resp_cat = routerNode.router.categories.filter(cat => (cat.name == "No Response"))[0];
+        let no_cat_exit = no_resp_cat.exit_uuid;
+        routerNode.exits.filter(ex => (ex.uuid) == no_cat_exit)[0].destination_uuid = row.nodeUUIDForExit;
+
 
       } else {
         let exit = this.createEmptyExit();
@@ -838,18 +838,38 @@ export class ConversationParser implements AbstractParser {
 
         routerNode.exits.push(exit);
 
-        // name name of category is an empty string, it needs to be genated from cases so that it is unique
-        // if a category name is used multiple times, it is assumed that multiple cases correspond to the same category (use same uuid!)
         
-        
-        
-        choiceCategory =
-        {
-          exit_uuid: exit.uuid,
-          name: cond,
-          uuid: this.deterministicUUID(this.conversationSheet.flow_name, "category")
+        // create category
+        if (cat_name != "") {
+          let all_cat_names = this.getAllCategoryNames(routerNode);
+          // if cat_name is already a name of a category, define choiceCategory as that category
+          // ==> if a category name is used multiple times, it is assumed that multiple cases correspond to the same category
+          if (all_cat_names.includes(cat_name)){
+            choiceCategory = routerNode.router.categories.filter(cat =>(cat.name == cat_name))[0];
+          } else {
+            choiceCategory =
+            {
+              exit_uuid: exit.uuid,
+              name: cat_name,
+              uuid: this.deterministicUUID(this.conversationSheet.flow_name, "category"),
+            }
+            routerNode.router.categories.push(choiceCategory);
+  
+          }
+
+         // if the name of category is an empty string, it needs to be genated from cond so that it is unique (can't have 2 cat with the same name and different uuids)
+        } else {
+          choiceCategory =
+          {
+            exit_uuid: exit.uuid,
+            name: this.generateCategoryName(routerNode, cond),
+            uuid: this.deterministicUUID(this.conversationSheet.flow_name, "category"),
+          }
+          routerNode.router.categories.push(choiceCategory);
+
         }
-        routerNode.router.categories.push(choiceCategory);
+
+
 
         // create corresponding case
         // "random" router does not have cases.
@@ -874,25 +894,24 @@ export class ConversationParser implements AbstractParser {
             }
 
           } else {
-            if (cond_type == ""){
+            if (cond_type == "") {
               throw new Error(
                 "On row " + row.row_id + ": empty cond type"
               );
             } else {
               if (cond_type == "has_any_word"
-               || cond_type == "has_all_words"
-               || cond_type == "has_only_phrase"
-               || cond_type == "has_phrase"
-               || cond_type == "has_number_between"
-               || cond_type == "has_number_lt"
-               || cond_type == "has_number_lte"
-               || cond_type == "has_number_gt"
-               || cond_type == "has_number_gte"
-               || cond_type == "has_number_eq"
-               || cond_type == "has_only_text"
-               || cond_type == "has_group"
-               || cond_type == "has_pattern")
-              {
+                || cond_type == "has_all_words"
+                || cond_type == "has_only_phrase"
+                || cond_type == "has_phrase"
+                || cond_type == "has_number_between"
+                || cond_type == "has_number_lt"
+                || cond_type == "has_number_lte"
+                || cond_type == "has_number_gt"
+                || cond_type == "has_number_gte"
+                || cond_type == "has_number_eq"
+                || cond_type == "has_only_text"
+                || cond_type == "has_group"
+                || cond_type == "has_pattern") {
                 choiceCase =
                 {
                   arguments: [cond],
@@ -901,19 +920,19 @@ export class ConversationParser implements AbstractParser {
                   uuid: this.deterministicUUID(this.conversationSheet.flow_name, "case"),
                 };
 
-              } else{
+              } else {
                 throw new Error(
                   "On row " + row.row_id + ": condition type not recognised"
                 );
-  
+
 
               }
-             
-  
+
+
             }
-           
-            
-            
+
+
+
           }
 
           routerNode.router.cases.push(choiceCase);
@@ -1127,7 +1146,7 @@ export class ConversationParser implements AbstractParser {
         );
       }
 
-      
+
       var cond_names: string[];
       if (row.condition_name) {
         if (row.condition_name.includes(";")) {
@@ -1204,7 +1223,7 @@ export class ConversationParser implements AbstractParser {
       let curr_cond = conds[i];
       let curr_type = cond_types[i];
       let curr_cat_name = cond_names[i];
-      
+
       let curr_var = cond_vars[i];
 
       // If condition_var is given this is operandValue
@@ -1233,7 +1252,7 @@ export class ConversationParser implements AbstractParser {
         operandValue = "text";
       }
 
-       console.log("operand " + operandType + "." + operandValue)
+      console.log("operand " + operandType + "." + operandValue)
 
       let routerType: string;
       if (fromRow.type === "split_random") {
@@ -1253,7 +1272,7 @@ export class ConversationParser implements AbstractParser {
       ) {
 
         this.addSingleConditionToRouterNode(fromNode, row, rows, curr_cond, curr_type, curr_cat_name);
-      
+
 
       } else {
         // If fromNode is not a router or router of a different type then create a new router
@@ -1264,7 +1283,7 @@ export class ConversationParser implements AbstractParser {
         // TODO Create an example Excel file to demonstate this.
         if (first) {
           newRouterNode = this.createRouterNode(operandType, operandValue, routerType);
-          this.addSingleConditionToRouterNode(newRouterNode, row, rows, curr_cond, curr_type);
+          this.addSingleConditionToRouterNode(newRouterNode, row, rows, curr_cond, curr_type, curr_cat_name);
           flow.nodes.push(newRouterNode);
           first = false;
         }
@@ -1302,7 +1321,7 @@ export class ConversationParser implements AbstractParser {
 
       }
     }
- }
+  }
 
   private getRowChoices(row: FlowTypes.ConversationRow): string[] {
     let quick_replies: string[] = [];
@@ -1355,4 +1374,44 @@ export class ConversationParser implements AbstractParser {
       return "";
     });
   }
+
+
+
+
+  private getAllCategoryNames(routerNode: RapidProFlowExport.Node): string[] {
+    let cat_names = [];
+    routerNode.router.categories.forEach(cat => {cat_names.push(cat.name)})
+    return cat_names
+  }
+
+  private generateCategoryName(routerNode: RapidProFlowExport.Node, cond: string): string {
+    let case_cat_name: string;
+    let new_cat_name: string;
+
+    let cat_names_list = this.getAllCategoryNames(routerNode);
+
+    if (!cat_names_list.includes(cond)){
+      case_cat_name = cond;
+    } else {
+      new_cat_name = cond + "_new"
+      case_cat_name = this.generateCategoryName(routerNode,new_cat_name)
+    }
+
+    return case_cat_name
+    
+  }
+
+
+
+
+
+
+
+
+
+
+
 }
+
+
+
