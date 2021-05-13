@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
+//import { validate as uuidValidate } from 'uuid';
 import chalk from "chalk";
 //import { FlowTypes, RapidProFlowExport } from "../../../../types";
 import { RapidProFlowExport } from "../../../../types";
@@ -78,14 +79,42 @@ export class ConversationParser implements AbstractParser {
         console.log("row id: " + row.row_id)
         console.log("row type: " + row.type)
 
-        let nodeId = this.deterministicUUID(conversation.flow_name, "node");
-        row.nodeUUIDForExit = nodeId;
+        let prev_rows = rows.slice(0, rowIndex);
+        let prev_rows_same_node = prev_rows.filter(r => (row._nodeId && r._nodeId && r._nodeId == row._nodeId));
 
-        let actionNode: RapidProFlowExport.Node = {
-          uuid: nodeId,
-          actions: [],
-          exits: [this.createEmptyExit()],
-        };
+        let actionNode: RapidProFlowExport.Node
+        let nodeId: string
+
+        if (prev_rows_same_node.length > 1) {
+          prev_rows_same_node = prev_rows_same_node.sort((a, b) => Number(a.row_id) - Number(b.row_id));
+          let first_action_row = prev_rows_same_node[0];
+          if (first_action_row._rapidProNode.uuid != first_action_row.nodeUUIDForExit) {
+            throw new Error(
+              "On row " +
+              row.row_id.toString() +
+              ": action in multiple action node has another node associated to it."
+            );
+          }
+          actionNode = nodesById[first_action_row.nodeUUIDForExit];
+          nodeId = actionNode.uuid;
+          row.nodeUUIDForExit = nodeId;
+
+        } else {
+          if (row._nodeId && this.checkIfValidUuid(row._nodeId, nodesById)) {
+            nodeId = row._nodeId;
+          } else {
+            nodeId = this.deterministicUUID(conversation.flow_name, "node");
+          }
+
+          row.nodeUUIDForExit = nodeId;
+
+          actionNode = {
+            uuid: nodeId,
+            actions: [],
+            exits: [this.createEmptyExit()],
+          };
+        }
+
         // Additional nodes added for the row e.g. because of a "go_to" type.
         let additionalNodes: RapidProFlowExport.Node[] = [];
 
@@ -403,9 +432,9 @@ export class ConversationParser implements AbstractParser {
         }
 
         // Now add connectivity
-        if (row.condition) {
+        if (row.condition || row.condition_type) {
           console.log("row conditions: " + row.condition)
-          row.condition = `${row.condition}`;
+          //row.condition = `${row.condition}`;
           //this.processRouterRow(row, rows, flow);
           this.processRouterRowWithMultipleConditions(row, rows, flow);
         } else {
@@ -784,7 +813,7 @@ export class ConversationParser implements AbstractParser {
     cat_name: string
   ) {
     // add a new category, case and exit for the condition.
-    if (cond != "") {
+    if (cond != "" || cond_type == "has_text") {
       let choiceCategory: RapidProFlowExport.Category;
       if (routerNode.actions.length > 0 && routerNode.actions[0].type === "enter_flow") {
         if (cond == "completed") {
@@ -838,26 +867,26 @@ export class ConversationParser implements AbstractParser {
 
         routerNode.exits.push(exit);
 
-        
+
         // create category
         if (cat_name != "") {
           let all_cat_names = this.getAllCategoryNames(routerNode);
           // if cat_name is already a name of a category, define choiceCategory as that category
           // ==> if a category name is used multiple times, it is assumed that multiple cases correspond to the same category
-          if (all_cat_names.includes(cat_name)){
-            choiceCategory = routerNode.router.categories.filter(cat =>(cat.name == cat_name))[0];
+          if (all_cat_names.includes(cat_name)) {
+            choiceCategory = routerNode.router.categories.filter(cat => (cat.name == cat_name))[0];
           } else {
             choiceCategory =
             {
               exit_uuid: exit.uuid,
-              name: cat_name,
+              name: String(cat_name),
               uuid: this.deterministicUUID(this.conversationSheet.flow_name, "category"),
             }
             routerNode.router.categories.push(choiceCategory);
-  
+
           }
 
-         // if the name of category is an empty string, it needs to be genated from cond so that it is unique (can't have 2 cat with the same name and different uuids)
+          // if the name of category is an empty string, it needs to be genated from cond so that it is unique (can't have 2 cat with the same name and different uuids)
         } else {
           choiceCategory =
           {
@@ -868,7 +897,6 @@ export class ConversationParser implements AbstractParser {
           routerNode.router.categories.push(choiceCategory);
 
         }
-
 
 
         // create corresponding case
@@ -892,45 +920,41 @@ export class ConversationParser implements AbstractParser {
               );
 
             }
+          } else if (cond_type == "has_text") {
+            console.log("cond has text")
+            choiceCase =
+            {
+              arguments: [],
+              category_uuid: choiceCategory.uuid,
+              type: cond_type,
+              uuid: this.deterministicUUID(this.conversationSheet.flow_name, "case"),
+            };
+
+          } else if (cond_type == "has_any_word"
+            || cond_type == "has_all_words"
+            || cond_type == "has_only_phrase"
+            || cond_type == "has_phrase"
+            || cond_type == "has_number_between"
+            || cond_type == "has_number_lt"
+            || cond_type == "has_number_lte"
+            || cond_type == "has_number_gt"
+            || cond_type == "has_number_gte"
+            || cond_type == "has_number_eq"
+            || cond_type == "has_only_text"
+            || cond_type == "has_group"
+            || cond_type == "has_pattern") {
+            choiceCase =
+            {
+              arguments: [cond],
+              category_uuid: choiceCategory.uuid,
+              type: cond_type,
+              uuid: this.deterministicUUID(this.conversationSheet.flow_name, "case"),
+            };
 
           } else {
-            if (cond_type == "") {
-              throw new Error(
-                "On row " + row.row_id + ": empty cond type"
-              );
-            } else {
-              if (cond_type == "has_any_word"
-                || cond_type == "has_all_words"
-                || cond_type == "has_only_phrase"
-                || cond_type == "has_phrase"
-                || cond_type == "has_number_between"
-                || cond_type == "has_number_lt"
-                || cond_type == "has_number_lte"
-                || cond_type == "has_number_gt"
-                || cond_type == "has_number_gte"
-                || cond_type == "has_number_eq"
-                || cond_type == "has_only_text"
-                || cond_type == "has_group"
-                || cond_type == "has_pattern") {
-                choiceCase =
-                {
-                  arguments: [cond],
-                  category_uuid: choiceCategory.uuid,
-                  type: cond_type,
-                  uuid: this.deterministicUUID(this.conversationSheet.flow_name, "case"),
-                };
-
-              } else {
-                throw new Error(
-                  "On row " + row.row_id + ": condition type not recognised"
-                );
-
-
-              }
-
-
-            }
-
+            throw new Error(
+              "On row " + row.row_id + ": condition type not recognised"
+            );
 
 
           }
@@ -1089,6 +1113,7 @@ export class ConversationParser implements AbstractParser {
 
 
     if (row.condition) {
+      console.log("has condition")
       var conds: string[];
       if (row.condition.includes(";")) {
         conds = row.condition.split(";").map((s) => s.trim());
@@ -1149,7 +1174,7 @@ export class ConversationParser implements AbstractParser {
 
       var cond_names: string[];
       if (row.condition_name) {
-        if (row.condition_name.includes(";")) {
+        if (String(row.condition_name).includes(";")) {
           cond_names = row.condition_name.split(";").map((s) => s.trim());
         } else {
           cond_names = [row.condition_name];
@@ -1168,46 +1193,105 @@ export class ConversationParser implements AbstractParser {
       }
 
     } else {
-      // if row.condition is empty cond_type and cond_var need to be empty as well
+      // if row.condition is empty, cond_type and cond_var need to be empty as well unless cond_type == has_text
       if (row.condition_type) {
-        throw new Error(
-          "On row " +
-          row.row_id.toString() +
-          ": condition is empty but cond_type is not"
-        );
-      }
-      if (row.condition_var) {
-        throw new Error(
-          "On row " +
-          row.row_id.toString() +
-          ": condition is empty but cond_var is not"
-        );
+        var cond_types: string[];
+
+        if (row.condition_type.includes(";")) {
+          cond_types = row.condition_type.split(";").map((s) => s.trim());
+        } else {
+          cond_types = [row.condition_type];
+        }
+
+        // conds needs to be an array of empty strings with the same length
+        var conds: string[];
+        conds = [];
+        cond_types.forEach(c => { conds.push("") })
+
+        //cond_vars needs to be an array with the same length
+        var cond_vars: string[];
+        if (row.condition_var) {
+          if (row.condition_var.includes(";")) {
+            cond_vars = row.condition_var.split(";").map((s) => s.trim());
+          } else {
+            cond_vars = [row.condition_var];
+          }
+          if (cond_types.length != cond_vars.length) {
+            throw new Error(
+              "On row " +
+              row.row_id.toString() +
+              ": condition is empty but cond_type is not and cond_var has a different length"
+            );
+
+          }
+
+        } else {
+          cond_vars = [];
+          cond_types.forEach(c => { cond_vars.push("") })
+        }
+
+        //cond_names needs to be an array with the same length
+        var cond_names: string[];
+       
+        if (row.condition_name) {
+          if (String(row.condition_name).includes(";")) {
+            cond_names = row.condition_name.split(";").map((s) => s.trim());
+          } else {
+            cond_names = [row.condition_name];
+          }
+          if (cond_types.length != cond_names.length) {
+            throw new Error(
+              "On row " +
+              row.row_id.toString() +
+              ": condition is empty but cond_type is not and cond_name has a different length"
+            );
+
+          }
+
+        } else {
+          cond_names = [];
+          cond_types.forEach(c => { cond_names.push("") })
+        }
+
+
+
+
+      } else { // if cond_type is empty, var and name need to be empty as well
+        if (row.condition_var) {
+          throw new Error(
+            "On row " +
+            row.row_id.toString() +
+            ": condition is empty but cond_var is not"
+          );
+        }
+
+        if (row.condition_name) {
+          throw new Error(
+            "On row " +
+            row.row_id.toString() +
+            ": condition is empty but cond_name is not"
+          );
+        }
+
+        // create arrays of empty strings (one per fromrow)
+        var conds: string[];
+        var cond_types: string[];
+        var cond_vars: string[];
+        var cond_names: string[];
+        conds = [];
+        cond_types = [];
+        cond_vars = [];
+        cond_names = [];
+
+        fromRows.forEach(r => {
+          conds.push("");
+          cond_types.push("");
+          cond_vars.push("");
+          cond_names.push("");
+        });
+
       }
 
-      if (row.condition_name) {
-        throw new Error(
-          "On row " +
-          row.row_id.toString() +
-          ": condition is empty but cond_name is not"
-        );
-      }
-
-      // create arrays of empty strings (one per fromrow)
-      var conds: string[];
-      var cond_types: string[];
-      var cond_vars: string[];
-      var cond_names: string[];
-      conds = [];
-      cond_types = [];
-      cond_vars = [];
-      cond_names = [];
-
-      fromRows.forEach(r => {
-        conds.push("");
-        cond_types.push("");
-        cond_vars.push("");
-        cond_names.push("");
-      });
 
     }
     console.log("conditions: " + conds)
@@ -1380,7 +1464,7 @@ export class ConversationParser implements AbstractParser {
 
   private getAllCategoryNames(routerNode: RapidProFlowExport.Node): string[] {
     let cat_names = [];
-    routerNode.router.categories.forEach(cat => {cat_names.push(cat.name)})
+    routerNode.router.categories.forEach(cat => { cat_names.push(cat.name) })
     return cat_names
   }
 
@@ -1390,20 +1474,30 @@ export class ConversationParser implements AbstractParser {
 
     let cat_names_list = this.getAllCategoryNames(routerNode);
 
-    if (!cat_names_list.includes(cond)){
+    if (!cat_names_list.includes(cond)) {
       case_cat_name = cond;
     } else {
       new_cat_name = cond + "_new"
-      case_cat_name = this.generateCategoryName(routerNode,new_cat_name)
+      case_cat_name = this.generateCategoryName(routerNode, new_cat_name)
     }
 
     return case_cat_name
-    
+
   }
 
 
 
+  private checkIfValidUuid(id: string, nodesById: { [nodeId: string]: RapidProFlowExport.Node }): boolean {
+    // validate function not available yet
+    //if (uuidValidate(id) && !(nodesById.hasOwnProperty(id))) {
+    if (!(nodesById.hasOwnProperty(id))) {
+      return true
+    } else {
+      console.log("Invalid uuid")
+      return false
+    }
 
+  }
 
 
 

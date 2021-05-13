@@ -100,5 +100,6 @@ export namespace FlowTypes {
         // This is the node to refer to when this row is mentioned as a from in another row.
         // This is updated e.g. when looping through from nodes.
         _rapidProNode?: RapidProFlowExport.Node;
+        _nodeId?: string //uuid of the associated node if the excel comes from an existing json
     }
 }
