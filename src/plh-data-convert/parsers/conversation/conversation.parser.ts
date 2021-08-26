@@ -80,14 +80,19 @@ export class ConversationParser implements AbstractParser {
         console.log("row type: " + row.type)
 
         let prev_rows = rows.slice(0, rowIndex);
+        console.log( "# of previous rows: "+ prev_rows.length)
         let prev_rows_same_node = prev_rows.filter(r => (row._nodeId && r._nodeId && r._nodeId == row._nodeId));
 
         let actionNode: RapidProFlowExport.Node
         let nodeId: string
+        let already_added_node = false;
 
-        if (prev_rows_same_node.length > 1) {
+        if (prev_rows_same_node.length >= 1) {
+          already_added_node = true;
+          console.log("# previous rows with same node id: " + prev_rows_same_node.length)
           prev_rows_same_node = prev_rows_same_node.sort((a, b) => Number(a.row_id) - Number(b.row_id));
           let first_action_row = prev_rows_same_node[0];
+          console.log(first_action_row)
           if (first_action_row._rapidProNode.uuid != first_action_row.nodeUUIDForExit) {
             throw new Error(
               "On row " +
@@ -468,7 +473,10 @@ export class ConversationParser implements AbstractParser {
         // Add this after the condition so that the nodes are in a sensible order when importing into Rapid Pro
         // If type is "go_to" then there is no node to add.
         if (row.type !== "go_to") {
-          flow.nodes.push(actionNode);
+          if (!already_added_node){
+            flow.nodes.push(actionNode);
+          }
+          
         }
         for (let n of additionalNodes) {
           flow.nodes.push(n);
@@ -1440,8 +1448,8 @@ export class ConversationParser implements AbstractParser {
       uuid: this.deterministicUUID(this.conversationSheet.flow_name, "action"),
       type: "set_contact_field",
       field: {
-        // Can these be the same?
-        key: fieldKey,
+        // fieldKey needs to be a single word
+        key: fieldKey.split(" ").join("_"),
         name: fieldKey,
       },
       value: stringValue

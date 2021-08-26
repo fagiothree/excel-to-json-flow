@@ -41,6 +41,7 @@
     "jasmine-ts": "^0.3.0",
     "log-update": "^4.0.0",
     "sharp": "0.26.1",
+    "source-map-support": "^0.5.19",
     "ts-node": "^7.0.1",
     "ts-node-dev": "^1.0.0",
     "typescript": "^4.2.3"

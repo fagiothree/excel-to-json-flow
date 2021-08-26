@@ -86,6 +86,7 @@ function applyDataParsers(
   */
   const customParsers: { [flowType in FlowTypes.FlowType]?: AbstractParser } = {
     conversation: new ConversationParser(),
+    flow: new ConversationParser()
     //task_list: new TaskListParser(dataByFlowType, allTasksById),
     //reminder_list: new ReminderListParser(),
     //template: new TemplateParser(),
@@ -112,6 +113,7 @@ function applyDataParsers(
  * @returns - array of all merged sheets (no grouping or collating)
  */
 function mergePLHData(jsons: { json: any; xlsxPath: string }[]) {
+  
   const merged: { [flow_name: string]: FlowTypes.FlowTypeWithData } = {};
   const releasedSummary = {};
   const skippedSummary = {};
@@ -120,10 +122,11 @@ function mergePLHData(jsons: { json: any; xlsxPath: string }[]) {
     const contentList = json["==content_list=="] as FlowTypes.FlowTypeWithData[];
     if (contentList) {
       for (const contents of contentList) {
-        const { flow_name, status, flow_type, module } = contents;
+        let { flow_name, sheet_name,status, flow_type, module } = contents;
         const filename = path.basename(xlsxPath, ".xlsx");
         // only include flows marked as released in the contents
         if (flow_name && status === "released") {
+          flow_name = sheet_name
           releasedSummary[flow_name] = { status, flow_type, module, filename };
           if (json.hasOwnProperty(flow_name)) {
             if (merged.hasOwnProperty(flow_name)) {

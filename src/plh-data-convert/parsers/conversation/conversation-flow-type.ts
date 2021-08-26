@@ -7,11 +7,13 @@ import { RapidProFlowExport } from "../../../../types";
 export namespace FlowTypes {
     export type FlowType =
         | "conversation"
+        | "flow"
 
     /** Core typings that appear in all flows, prior to data row merge */
     export interface FlowTypeBase {
         flow_type: FlowType;
         flow_name: string;
+        sheet_name: string;
         /** Used to hide unfinished content from the app */
         status: "draft" | "released";
         module?: string;
@@ -31,7 +33,7 @@ export namespace FlowTypes {
 
     /** Format of conversation rows prior to processing */
     export interface ConversationSheet extends FlowTypeWithData {
-        flow_type: "conversation";
+        flow_type: "conversation" | "flow";
         rows: ConversationRow[];
     }
     /** Format of conversation rows post processing */
